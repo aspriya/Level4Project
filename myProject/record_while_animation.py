@@ -82,17 +82,22 @@ class AMT(tk.Tk):
         frame = self.frames[cont]
         frame.tkraise()
 
-def qf():
-    print("you did it!")
+def stop_recording():
+    stream.stop_stream()
+    stream.close()
+    p.terminate()
 
 class StartPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
-        label = tk.Label(self, text = "Start Page", font = LARGE_FONT)
+        label = tk.Label(self, text = "Automatic Music Transcriptor", font = LARGE_FONT)
         label.pack (pady = 10, padx= 10)
 
-        button1 = tk.Button(self, text="Visit Page 1", command = qf)
+        button1 = tk.Button(self, text="Stop Recording", command = stop_recording)
         button1.pack()
+
+        button2 = tk.Button(self, text="Transliterate", command = Transliterate)
+        button2.pack()
 
 
         canvas = FigureCanvasTkAgg(fig, self)
@@ -100,14 +105,10 @@ class StartPage(tk.Frame):
         canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand= True)
 
 
-        stream.stop_stream()
-        stream.close()
-        p.terminate()
-
-
+def Transliterate():
+    a = 1
 
 
 app = AMT()
 ani = animation.FuncAnimation(fig, animate,init_func= init, interval=1, blit=True)
-print("ab")
 app.mainloop()
