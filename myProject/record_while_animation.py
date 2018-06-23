@@ -1,114 +1,217 @@
 import pyaudio
-import struct
 import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib import style
-style.use("ggplot")
+style.use("seaborn")
+
+import wave
+import sounddevice as sd
 
 import matplotlib as mpl
 import sys
-if sys.version_info[0] < 3:
-    import Tkinter as tk
-else:
-    import tkinter as tk
-
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
 
+from Tkinter import * #if using python 3.* then use: from tkinter import * i.e (lowercase)
+import tkFileDialog
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
+
+import subprocess
+
+frames_nD = [] #A python list of chunks (numpy.ndarray)
+frames = []
+
+from PitchTranscription import *
 
 CHUNK = 2048 #Blocksize
 CHANNELS = 1 #2
 RATE = 44100  #Sampling Rate in Hz
-RECORD_SECONDS = 70
+FORMAT = pyaudio.paInt16
 
 
-# Create the figure we desire to add to an existing canvas
-[fig, ax] = plt.subplots()
+# Create the live waver form figure we desire to add to an existing canvas
+# [fig, ax] = plt.subplots()
+fig = Figure(figsize=(4,3))
+ax = fig.add_subplot(111)
 line, = ax.plot([], [], lw=1)
 ax.set_ylim(-40000,40000)
 ax.set_xlim(0, 2048 * 10)
 plt.ylabel('Volume')
 plt.xlabel('Samples')
-plt.title('AUDIO WAVEFORM')
+fig.suptitle('Live Audio Waveform')
+
 
 
 def init():
     line.set_data([], [])
     return line,
 
-frames = [] #A python list of chunks (numpy.ndarray)
 def animate(i):
     # update the data
     #Reading from audio input stream into data with block length "CHUNK":
+    global frames_nD
     data = stream.read(CHUNK)
-    frames.append(np.fromstring(data, dtype=np.int16))
+    frames_nD.append(np.fromstring(data, dtype=np.int16))
     #Convert the list of numpy-arrays into a 1D array (column-wise)
-    y = np.hstack(frames[-10:])
+    y = np.hstack(frames_nD[-10:])
     x = np.linspace(0, len(y), len(y))
     line.set_data(x, y)
     return line,
 
-
 p = pyaudio.PyAudio()
 
-stream = p.open(format=pyaudio.paInt16,
+stream = p.open(format=FORMAT,
                 channels=CHANNELS,
                 rate=RATE,
                 input=True,
                 output=True,
                 frames_per_buffer=CHUNK)
 
-LARGE_FONT = ("Verdana", 12)
+LARGE_FONT = ("Verdana", 18)
 
-class AMT(tk.Tk):
-    def __init__(self, *args, **kwargs):
-        tk.Tk.__init__(self, *args, **kwargs)
-        container = tk.Frame(self)
+class AMT(Frame):
+    def __init__(self, master):
 
-        container.pack(side="top", fill = "both", expand = True)
+        Frame.__init__(self, master)
+        self.grid()
+        self.create_widgets()
 
-        container.grid_rowconfigure(0, weight =1)
-        container.grid_columnconfigure(0, weight=1)
-        self.frames = {}
-        frame = StartPage(container, self)
-        self.frames[StartPage] = frame
-        frame.grid(row=0, column=0, sticky = "nsew")
-        self.show_frame(StartPage)
+    def create_widgets(self):
+        self.heading = Label(self, text="Automatic Music Transcriptor", font = LARGE_FONT)
+        self.heading.grid(row=0, column=0, columnspan=5)
 
-    def show_frame(self, cont):
-        frame = self.frames[cont]
-        frame.tkraise()
+        self.canvas_live = FigureCanvasTkAgg(fig, self)
+        self.canvas_live.show()
+        self.canvas_live.get_tk_widget().grid(row = 1, column = 0, columnspan=5, rowspan=2)
 
-def stop_recording():
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
+        self.stop = Button(self, text="Stop Recording", command = self.stop_recording)
+        self.stop.grid(row=3, column=0, sticky=W)
 
-class StartPage(tk.Frame):
-    def __init__(self, parent, controller):
-        tk.Frame.__init__(self, parent)
-        label = tk.Label(self, text = "Automatic Music Transcriptor", font = LARGE_FONT)
-        label.pack (pady = 10, padx= 10)
-
-        button1 = tk.Button(self, text="Stop Recording", command = stop_recording)
-        button1.pack()
-
-        button2 = tk.Button(self, text="Transliterate", command = Transliterate)
-        button2.pack()
+        self.stop = Button(self, text="Load", command = self.load_audio)
+        self.stop.grid(row=3, column=1, sticky=W)
 
 
-        canvas = FigureCanvasTkAgg(fig, self)
-        canvas.show()
-        canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand= True)
+
+    def stop_recording(self):
+        stream.stop_stream()
+        stream.close()
+        p.terminate()
+
+        global frames
+
+        frames = np.hstack(frames_nD)
+        frames = np.double(frames)
+        frames = frames / (2 ** 15) #normalizing the sample to be in -1 to 1 range in value.
+        DC = frames.mean()
+        MAX = (np.abs(frames)).max()
+        frames = (frames - DC) / (MAX + 0.0000000001)
+
+        self.canvas_live.get_tk_widget().delete("all")
+        print("frame 0 and 1 is: ", frames[1])
+
+        # Create the wave form figure and add to canvas
+        fig2 = Figure(figsize=(4,3))
+        ax2 = fig2.add_subplot(111)
+        line = ax2.plot(frames)
+        plt.ylabel('Volume')
+        plt.xlabel('Samples')
+        fig2.suptitle('Full Audio Waveform')
+
+        print(plt.style.available)
+
+        self.canvas = FigureCanvasTkAgg(fig2, self)
+        self.canvas.show()
+        self.canvas.get_tk_widget().grid(row = 1, column = 0, columnspan=5, rowspan=2)
+
+        self.transliterate = Button(self, text="Play", command = lambda: play_audio(frames, RATE))
+        self.transliterate.grid(row=3, column=2, sticky=W)
+
+        self.transliterate = Button(self, text="Transliterate", command = lambda: transliterate(frames, RATE))
+        self.transliterate.grid(row=3, column=3, sticky=W)
+
+        self.transliterate = Button(self, text="Play Synthesized", command = play_synthesized)
+        self.transliterate.grid(row=3, column=4, sticky=W)
+
+    def load_audio(self):
+        stream.stop_stream()
+        stream.close()
+        p.terminate()
+
+        self.canvas_live.get_tk_widget().delete("all")
+
+        audio_obj_path = tkFileDialog.askopenfilename(filetypes = (("wav files", ".*wav"), ("All files", "*.*")))
+
+        spf = wave.open(audio_obj_path,'r')
+        #Extract Raw Audio from Wav File
+
+        global frames
+        frames = spf.readframes(-1)
+        frames = np.fromstring(frames, 'Int16')
+
+        frames = np.double(frames)
+        frames = frames / (2 ** 15) #normalizing the sample to be in -1 to 1 range in value.
+        DC = frames.mean()
+        MAX = (np.abs(frames)).max()
+        frames = (frames - DC) / (MAX + 0.0000000001)
+
+        #If Stereo
+        if spf.getnchannels() == 2:
+            print 'Just mono files'
+            sys.exit(0)
 
 
-def Transliterate():
-    a = 1
+        fig3 = Figure(figsize=(4,3))
+        ax3 = fig3.add_subplot(111)
+        line = ax3.plot(frames)
+        plt.ylabel('Volume')
+        plt.xlabel('Samples')
+        fig3.suptitle('Full Audio Waveform')
+
+        self.canvas = FigureCanvasTkAgg(fig3, self)
+        self.canvas.show()
+        self.canvas.get_tk_widget().grid(row = 1, column = 0, columnspan=5, rowspan=2)
+
+        self.transliterate = Button(self, text="Play", command = lambda: play_audio(frames, RATE))
+        self.transliterate.grid(row=3, column=2, sticky=W)
+
+        self.transliterate = Button(self, text="Transliterate", command = lambda: transliterate(frames, RATE))
+        self.transliterate.grid(row=3, column=3, sticky=W)
+
+        self.transliterate = Button(self, text="Play Synthesized", command = play_synthesized)
+        self.transliterate.grid(row=3, column=4, sticky=W)
 
 
-app = AMT()
-ani = animation.FuncAnimation(fig, animate,init_func= init, interval=1, blit=True)
-app.mainloop()
+def transliterate(seframes, RATE):
+    display_CQT(frames, RATE)
+    detect_onsets(frames, RATE)
+    get_synthesized_samples()
+    plot_synthesized_CQT()
+    g_tempo = estimate_global_tempo()
+    audio_to_midi_melodia("/home/ashan/Desktop/test2_midi.mid", bpm=g_tempo)
+    # cmd = "midi2ly /home/ashan/Desktop/test2_midi.midi -o /home/ashan/Desktop/outfile.ly"
+    cmd = "ls /home/ashan/Desktop/"
+    resul = subprocess.call(cmd, shell=True)
+    print("resul 1 : ", resul)
+
+    cmd2 = "midi2ly /home/ashan/Desktop/test2_midi.midi -o /home/ashan/Desktop/outfile.ly"
+    resul2 = subprocess.call(cmd2, shell=True)
+    print("resul 2 : ", resul2)
+
+    cmd3 = "ls /home/ashan/Desktop/"
+    resul3 = subprocess.call(cmd3, shell=True)
+    print("resul 3 : ", resul3)
+
+    cmd4 = "cd /home/ashan/Desktop && lilypond --png outfile.ly"
+    resul4 = subprocess.call(cmd4, shell = True)
+    print("resul4 : ", resul4)
+
+
+root = Tk()
+root.title("Welcom")
+
+app = AMT(root)
+ani = animation.FuncAnimation(fig, animate, init_func= init, interval=1, blit=True)
+
+root.mainloop()
