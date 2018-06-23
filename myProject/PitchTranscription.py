@@ -50,7 +50,7 @@ def detect_onsets(x, sr):
     print("\n\ntype of data is :",type(x))
     global hop_length # hop lenght = samples per frame
     hop_length = 150
-    onset_envelope = librosa.onset.onset_strength(x, sr = sr, hop_length=hop_length, n_fft= 1024)
+    onset_envelope = librosa.onset.onset_strength(x, sr = sr, hop_length=hop_length, n_fft= 2048)
 
     ax2 = plt.subplot(4,1, 2)
     plt.plot(onset_envelope)
@@ -96,9 +96,10 @@ def detect_onsets(x, sr):
 # ## Step 2: Estimate Pitch
 # #### Estimate pitch using the autocorrelation method:
 f0s = [] #f0s array
-def estimate_pitch(segment, sr, fmin=50.0, fmax=2000.0): #F0 ESTIMATION OF A GIVEN SEGMENT
+def estimate_pitch(n0, n1, fmin=50.0, fmax=2000.0): #F0 ESTIMATION OF A GIVEN SEGMENT
 
     # Compute autocorrelation of input segment.
+    segment = x[n0:n1]
     r = librosa.autocorrelate(segment)
 
     # Define lower and upper limits for the autocorrelation argmax.
@@ -116,30 +117,27 @@ def estimate_pitch(segment, sr, fmin=50.0, fmax=2000.0): #F0 ESTIMATION OF A GIV
 
 # ## Step 3: Generate Pure Tone
 # #### Create a function to generate a pure tone at the specified frequency:
-def generate_sine(f0, sr, n_duration):
+def generate_sine(f0, n_duration):
     n = numpy.arange(n_duration)
     return 0.2*numpy.sin(2*numpy.pi*f0*n/float(sr))
 
 
 # ## Step 4: Synthesize and plot synthesized CQT
 # #### Create a helper function for use in a list comprehension:
-def estimate_pitch_and_generate_sine(x, onset_samples, i, sr):
+def estimate_pitch_and_generate_sine(onset_samples, i):
     n0 = onset_samples[i]
     n1 = onset_samples[i+1]
-    f0 = estimate_pitch(x[n0:n1], sr)
-    return generate_sine(f0, sr, n1-n0)
+    f0 = estimate_pitch(n0,n1)
+    return generate_sine(f0, n1-n0)
 
 
 # #### Use a list comprehension to concatenate the synthesized segments:
 def get_synthesized_samples():
     global y
     y = numpy.concatenate([
-        estimate_pitch_and_generate_sine(x, onset_boundaries, i, sr=sr)
+        estimate_pitch_and_generate_sine(onset_boundaries, i)
         for i in range(len(onset_boundaries)-1)
     ])
-    print("synsthesized first 20 samples: ", y[0:20])
-    print("number of segments : ", len(onset_boundaries)-1)
-    print("and f0s are : ", f0s)
 
 
 # #### Play the synthesized transcription.
@@ -234,6 +232,5 @@ def audio_to_midi_melodia(outfile, bpm, smooth=0.15, minduration=0.1):
     # save note sequence to a midi file
     print("Saving MIDI to disk...")
     save_midi(outfile, notes, bpm)
-
 
     print("Conversion complete.")
