@@ -5,13 +5,11 @@ import seaborn
 import numpy, scipy
 import librosa, librosa.display
 
-import vamp
 import argparse
 import os
 import numpy as np
 from midiutil.MidiFile import MIDIFile
 from scipy.signal import medfilt
-import jams
 
 import sounddevice as sd
 
@@ -47,6 +45,7 @@ def display_CQT(frames, RATE):
 # ## Step 1: Detect Onsets
 # #### To accurately detect onsets, it may be helpful to see what the novelty funYction looks like:
 onset_boundaries = []
+onset_times = []
 def detect_onsets(x, sr):
     print("\n\ntype of data is :",type(x))
     global hop_length # hop lenght = samples per frame
@@ -58,6 +57,7 @@ def detect_onsets(x, sr):
     plt.xlim(0, len(onset_envelope))
 
     global onset_boundaries
+    global onset_times
 
     # #### Among the obvious large peaks, there are many smaller peaks. We want to choose parameters which preserve the large peaks while ignoring the small peaks.  Next, we try to detect onsets.
     onset_samples = librosa.onset.onset_detect(x,
@@ -95,7 +95,7 @@ def detect_onsets(x, sr):
 
 # ## Step 2: Estimate Pitch
 # #### Estimate pitch using the autocorrelation method:
-f0s = []
+f0s = [] #f0s array
 def estimate_pitch(segment, sr, fmin=50.0, fmax=2000.0): #F0 ESTIMATION OF A GIVEN SEGMENT
 
     # Compute autocorrelation of input segment.
@@ -138,6 +138,8 @@ def get_synthesized_samples():
         for i in range(len(onset_boundaries)-1)
     ])
     print("synsthesized first 20 samples: ", y[0:20])
+    print("number of segments : ", len(onset_boundaries)-1)
+    print("and f0s are : ", f0s)
 
 
 # #### Play the synthesized transcription.
@@ -167,36 +169,7 @@ def estimate_global_tempo(): #tempo is the bpm (beats per minuit)
 
 # #### write synthesized signal
 
-# pip install vamp
 # pip install MIDIUtil
-# pip install --user jams
-
-def save_jams(jamsfile, notes, track_duration, orig_filename):
-
-    # Construct a new JAMS object and annotation records
-    jam = jams.JAMS()
-
-    # Store the track duration
-    jam.file_metadata.duration = track_duration
-    jam.file_metadata.title = orig_filename
-
-    midi_an = jams.Annotation(namespace='pitch_midi',
-                              duration=track_duration)
-    midi_an.annotation_metadata =         jams.AnnotationMetadata(
-            data_source='audio_to_midi_melodia.py v%s' % __init__.__version__,
-            annotation_tools='audio_to_midi_melodia.py (https://github.com/'
-                             'justinsalamon/audio_to_midi_melodia)')
-
-    # Add midi notes to the annotation record.
-    for n in notes:
-        midi_an.append(time=n[0], duration=n[1], value=n[2], confidence=0)
-
-    # Store the new annotation in the jam
-    jam.annotations.append(midi_an)
-
-    # Save to disk
-    jam.save(jamsfile)
-
 
 def save_midi(outfile, notes, tempo):
 
@@ -224,51 +197,6 @@ def save_midi(outfile, notes, tempo):
     binfile.close()
 
 
-def midi_to_notes(midi, fs, hop, smooth, minduration):
-
-    # smooth midi pitch sequence first
-    if (smooth > 0):
-        filter_duration = smooth  # in seconds
-        filter_size = int(filter_duration * fs / float(hop))
-        if filter_size % 2 == 0:
-            filter_size += 1
-        midi_filt = medfilt(midi, filter_size) #applying a median filter
-    else:
-        midi_filt = midi
-    # print(len(midi),len(midi_filt))
-
-    notes = []
-    p_prev = None
-    duration = 0
-    onset = 0
-    for n, p in enumerate(midi_filt):
-        if p == p_prev:
-            duration += 1
-        else:
-            # treat 0 as silence
-            if p_prev > 0:
-                # add note
-                duration_sec = duration * hop / float(fs)
-                # only add notes that are long enough
-                if duration_sec >= minduration:
-                    onset_sec = onset * hop / float(fs)
-                    notes.append((onset_sec, duration_sec, p_prev))
-
-            # start new note
-            onset = n
-            duration = 1
-            p_prev = p
-
-    # add last note
-    if p_prev > 0:
-        # add note
-        duration_sec = duration * hop / float(fs)
-        onset_sec = onset * hop / float(fs)
-        notes.append((onset_sec, duration_sec, p_prev))
-
-    return notes
-
-
 def hz2midi(hz):
 
     # convert from Hz to midi note
@@ -284,53 +212,28 @@ def hz2midi(hz):
     return midi
 
 
-def audio_to_midi_melodia(outfile, bpm, smooth=0.15, minduration=0.1,
-                          savejams=False):
+def generate_note_sequance(midi_notes):  #one of my algorithm
+    note_seqance = []
+    for i, v in enumerate(midi_notes):
+        note_seqance.append([onset_times[i], onset_times[i+1] - onset_times[i], v])
 
-    # define analysis parameters
-    fs = sr
-    hop = hop_length
-    data = y
-
+    return note_seqance
 
 
-    # extract melody using melodia vamp plugin
-    print("Extracting melody f0 with MELODIA...")
-    melody = vamp.collect(data, sr, "mtg-melodia:melodia",
-                          parameters={"voicing": 0.2})
 
-    # hop = melody['vector'][0]
-    pitch = melody['vector'][1]
-
-    print("pitch is: ", pitch)
-    print("and f0s are : ", f0s)
-
-    # impute missing 0's to compensate for starting timestamp
-    pitch = np.insert(pitch, 0, [0]*8)
-
-    # debug
-    # np.asarray(pitch).dump('f0.npy')
-    # print(len(pitch))
+def audio_to_midi_melodia(outfile, bpm, smooth=0.15, minduration=0.1):
 
     # convert f0 to midi notes
     print("Converting Hz to MIDI notes...")
-    midi_pitch = hz2midi(pitch)
+    midi_pitch = hz2midi(np.asarray(f0s))
 
     # segment sequence into individual midi notes
-    notes = midi_to_notes(midi_pitch, fs, hop, smooth, minduration)
+    notes = generate_note_sequance(midi_pitch)
+
 
     # save note sequence to a midi file
     print("Saving MIDI to disk...")
     save_midi(outfile, notes, bpm)
 
-    if savejams:
-        print("Saving JAMS to disk...")
-        jamsfile = outfile.replace(".mid", ".jams")
-        track_duration = len(data) / float(fs)
-        save_jams(jamsfile, notes, track_duration, os.path.basename(infile))
 
     print("Conversion complete.")
-
-
-#audio_to_midi_melodia(y, sr, hop, outfile, bpm, smooth=0.25, minduration=0.1, savejams=False)
-# audio_to_midi_melodia(y,sr, hop_length, "/home/ashan/Desktop/test_midi.mid")

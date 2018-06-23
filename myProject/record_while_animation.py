@@ -193,19 +193,19 @@ def transliterate(seframes, RATE):
     # cmd = "midi2ly /home/ashan/Desktop/test2_midi.midi -o /home/ashan/Desktop/outfile.ly"
     cmd = "ls /home/ashan/Desktop/"
     resul = subprocess.call(cmd, shell=True)
-    print("resul 1 : ", resul)
+    # print("resul 1 : ", resul)
 
     cmd2 = "midi2ly /home/ashan/Desktop/test2_midi.midi -o /home/ashan/Desktop/outfile.ly"
     resul2 = subprocess.call(cmd2, shell=True)
-    print("resul 2 : ", resul2)
+    # print("resul 2 : ", resul2)
 
     cmd3 = "ls /home/ashan/Desktop/"
     resul3 = subprocess.call(cmd3, shell=True)
-    print("resul 3 : ", resul3)
+    # print("resul 3 : ", resul3)
 
     cmd4 = "cd /home/ashan/Desktop && lilypond --png outfile.ly"
     resul4 = subprocess.call(cmd4, shell = True)
-    print("resul4 : ", resul4)
+    # print("resul4 : ", resul4)
 
 
 root = Tk()
