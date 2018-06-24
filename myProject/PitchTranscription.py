@@ -13,6 +13,10 @@ from scipy.signal import medfilt
 
 import sounddevice as sd
 
+from progressbar import ProgressBar
+
+pbar = ProgressBar()
+
 
 
 # #### Play the audio file.
@@ -49,8 +53,8 @@ onset_times = []
 def detect_onsets(x, sr):
     print("\n\ntype of data is :",type(x))
     global hop_length # hop lenght = samples per frame
-    hop_length = 150
-    onset_envelope = librosa.onset.onset_strength(x, sr = sr, hop_length=hop_length, n_fft= 2048)
+    hop_length = 140
+    onset_envelope = librosa.onset.onset_strength(x, sr = sr, hop_length=hop_length, n_fft= 1024)
 
     ax2 = plt.subplot(4,1, 2)
     plt.plot(onset_envelope)
@@ -68,8 +72,8 @@ def detect_onsets(x, sr):
                                                backtrack=True,
                                                pre_max=5,
                                                post_max=6,
-                                               pre_avg=60,
-                                               post_avg=60,
+                                               pre_avg=50,
+                                               post_avg=55,
                                                delta=0.2,
                                                wait=0)
 
@@ -117,27 +121,23 @@ def estimate_pitch(n0, n1, fmin=50.0, fmax=2000.0): #F0 ESTIMATION OF A GIVEN SE
 
 # ## Step 3: Generate Pure Tone
 # #### Create a function to generate a pure tone at the specified frequency:
-def generate_sine(f0, n_duration):
-    n = numpy.arange(n_duration)
-    return 0.2*numpy.sin(2*numpy.pi*f0*n/float(sr))
-
-
-# ## Step 4: Synthesize and plot synthesized CQT
-# #### Create a helper function for use in a list comprehension:
-def estimate_pitch_and_generate_sine(onset_samples, i):
-    n0 = onset_samples[i]
-    n1 = onset_samples[i+1]
+def estimate_pitch_and_generate_sine(i):
+    n0 = onset_boundaries[i]
+    n1 = onset_boundaries[i+1]
     f0 = estimate_pitch(n0,n1)
-    return generate_sine(f0, n1-n0)
+    n = numpy.arange(n1-n0)
+    return 0.2*numpy.sin(2*numpy.pi*f0*n/float(sr))
 
 
 # #### Use a list comprehension to concatenate the synthesized segments:
 def get_synthesized_samples():
+    print("started synthesizing..")
     global y
     y = numpy.concatenate([
-        estimate_pitch_and_generate_sine(onset_boundaries, i)
-        for i in range(len(onset_boundaries)-1)
+        estimate_pitch_and_generate_sine(i)
+        for i in pbar(range(len(onset_boundaries)-1))
     ])
+    print(("synthesized!"))
 
 
 # #### Play the synthesized transcription.
@@ -152,7 +152,7 @@ def plot_synthesized_CQT():
     syn_cqt = librosa.cqt(y, sr=sr)
     ax4 = plt.subplot(4, 1, 4)
     librosa.display.specshow(abs(syn_cqt), sr=sr, x_axis='time', y_axis='cqt_note')
-    plt.show()
+
 
 
 def estimate_global_tempo(): #tempo is the bpm (beats per minuit)

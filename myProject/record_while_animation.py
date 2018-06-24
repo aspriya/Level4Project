@@ -42,23 +42,27 @@ plt.ylabel('Volume')
 plt.xlabel('Samples')
 fig.suptitle('Live Audio Waveform')
 
-
+animate_swith = True
 
 def init():
     line.set_data([], [])
     return line,
 
 def animate(i):
-    # update the data
-    #Reading from audio input stream into data with block length "CHUNK":
-    global frames_nD
-    data = stream.read(CHUNK)
-    frames_nD.append(np.fromstring(data, dtype=np.int16))
-    #Convert the list of numpy-arrays into a 1D array (column-wise)
-    y = np.hstack(frames_nD[-10:])
-    x = np.linspace(0, len(y), len(y))
-    line.set_data(x, y)
-    return line,
+    if animate_swith:
+        # update the data
+        #Reading from audio input stream into data with block length "CHUNK":
+        global frames_nD
+        data = stream.read(CHUNK)
+        frames_nD.append(np.fromstring(data, dtype=np.int16))
+        #Convert the list of numpy-arrays into a 1D array (column-wise)
+        y = np.hstack(frames_nD[-10:])
+        x = np.linspace(0, len(y), len(y))
+        line.set_data(x, y)
+        return line,
+    else:
+        line.set_data([0,1], [0])
+        return line,
 
 p = pyaudio.PyAudio()
 
@@ -95,6 +99,8 @@ class AMT(Frame):
 
 
     def stop_recording(self):
+        global animate_swith
+        animate_swith = False
         stream.stop_stream()
         stream.close()
         p.terminate()
@@ -135,6 +141,10 @@ class AMT(Frame):
         self.transliterate.grid(row=3, column=4, sticky=W)
 
     def load_audio(self):
+        global animate_swith
+        animate_swith = False
+        global frames
+        frames = []
         stream.stop_stream()
         stream.close()
         p.terminate()
@@ -146,7 +156,6 @@ class AMT(Frame):
         spf = wave.open(audio_obj_path,'r')
         #Extract Raw Audio from Wav File
 
-        global frames
         frames = spf.readframes(-1)
         frames = np.fromstring(frames, 'Int16')
 
@@ -207,6 +216,10 @@ def transliterate(seframes, RATE):
     resul4 = subprocess.call(cmd4, shell = True)
     # print("resul4 : ", resul4)
 
+    #remove last line entered by lilypond in the png by croping the png
+    cmd5 = "cd /home/ashan/Desktop && convert outfile.png -gravity South -chop 0x45 outfile.png"
+    resul5 = subprocess.call(cmd5, shell = True)
+    plt.show()
 
 root = Tk()
 root.title("Welcom")
