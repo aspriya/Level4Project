@@ -1,9 +1,8 @@
-from scipy import signal
-from scipy.io import wavfile #to read and write wavfiles
+
 import matplotlib.pyplot as plt
 
 import numpy as np
-import scipy
+
 
 #enamble caching of librosa for speed up processes
 # allows you to store and re-use intermediate computations across sessions
@@ -15,13 +14,13 @@ import argparse
 
 
 from midiutil.MidiFile import MIDIFile
-from scipy.signal import medfilt
+
 
 import sounddevice as sd
 
-from progressbar import ProgressBar
+# from progressbar import ProgressBar
 
-pbar = ProgressBar()
+# pbar = ProgressBar()
 
 
 
@@ -142,7 +141,7 @@ def get_synthesized_samples():
     global y
     y = np.concatenate([
         estimate_pitch_and_generate_sine(i)
-        for i in pbar(range(len(onset_boundaries)-1))
+        for i in range(len(onset_boundaries)-1) #for i in pbar(range(len(onset_boundaries)-1))
     ])
 
     print(("synthesized!"))
@@ -194,7 +193,7 @@ def save_midi(outfile, notes, tempo):
         onset = note[0] * (tempo/60.)
         duration = note[1] * (tempo/60.)
         # duration = 1
-        pitch = note[2]
+        pitch = int(note[2].item())
         midifile.addNote(track, channel, pitch, onset, duration, volume)
 
     # And write it to disk.

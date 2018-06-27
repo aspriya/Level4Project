@@ -14,8 +14,8 @@ import matplotlib as mpl
 import sys
 from matplotlib.figure import Figure
 
-from Tkinter import * #if using python 3.* then use: from tkinter import * i.e (lowercase)
-import tkFileDialog
+from tkinter import * #if using python 3.* then use: from tkinter import * i.e (lowercase)
+import tkinter.filedialog
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 
 import subprocess
@@ -155,7 +155,7 @@ class AMT(Frame):
 
         self.canvas_live.get_tk_widget().delete("all")
 
-        audio_obj_path = tkFileDialog.askopenfilename(filetypes = (("wav files", ".*wav"), ("All files", "*.*")))
+        audio_obj_path = tkinter.filedialog.askopenfilename(filetypes = (("wav files", ".*wav"), ("All files", "*.*")))
 
         audio_name = re.search(r"^.*/(.*\.wav)$", audio_obj_path).group(1)
         print("audio name: ", audio_name)
@@ -177,7 +177,7 @@ class AMT(Frame):
 
         #If Stereo
         if spf.getnchannels() == 2:
-            print 'Just mono files'
+            print('Just mono files')
             sys.exit(0)
 
 
