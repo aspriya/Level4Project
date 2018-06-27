@@ -20,6 +20,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 
 import subprocess
 
+import re
+
 frames_nD = [] #A python list of chunks (numpy.ndarray)
 frames = []
 
@@ -140,10 +142,12 @@ class AMT(Frame):
         self.transliterate = Button(self, text="Play Synthesized", command = play_synthesized)
         self.transliterate.grid(row=3, column=4, sticky=W)
 
+
     def load_audio(self):
         global animate_swith
         animate_swith = False
         global frames
+        global RATE
         frames = []
         stream.stop_stream()
         stream.close()
@@ -153,8 +157,14 @@ class AMT(Frame):
 
         audio_obj_path = tkFileDialog.askopenfilename(filetypes = (("wav files", ".*wav"), ("All files", "*.*")))
 
+        audio_name = re.search(r"^.*/(.*\.wav)$", audio_obj_path).group(1)
+        print("audio name: ", audio_name)
+
         spf = wave.open(audio_obj_path,'r')
         #Extract Raw Audio from Wav File
+
+        RATE = spf.getframerate()
+        print("sample rate of loaded auio is: ", RATE)
 
         frames = spf.readframes(-1)
         frames = np.fromstring(frames, 'Int16')
@@ -176,7 +186,7 @@ class AMT(Frame):
         line = ax3.plot(frames)
         plt.ylabel('Volume')
         plt.xlabel('Samples')
-        fig3.suptitle('Full Audio Waveform')
+        fig3.suptitle(audio_name +' - Full Audio Waveform')
 
         self.canvas = FigureCanvasTkAgg(fig3, self)
         self.canvas.show()
@@ -199,18 +209,11 @@ def transliterate(seframes, RATE):
     plot_synthesized_CQT()
     g_tempo = estimate_global_tempo()
     audio_to_midi_melodia("/home/ashan/Desktop/test2_midi.mid", bpm=g_tempo)
-    # cmd = "midi2ly /home/ashan/Desktop/test2_midi.midi -o /home/ashan/Desktop/outfile.ly"
-    cmd = "ls /home/ashan/Desktop/"
-    resul = subprocess.call(cmd, shell=True)
-    # print("resul 1 : ", resul)
+
 
     cmd2 = "midi2ly /home/ashan/Desktop/test2_midi.midi -o /home/ashan/Desktop/outfile.ly"
     resul2 = subprocess.call(cmd2, shell=True)
     # print("resul 2 : ", resul2)
-
-    cmd3 = "ls /home/ashan/Desktop/"
-    resul3 = subprocess.call(cmd3, shell=True)
-    # print("resul 3 : ", resul3)
 
     cmd4 = "cd /home/ashan/Desktop && lilypond --png outfile.ly"
     resul4 = subprocess.call(cmd4, shell = True)

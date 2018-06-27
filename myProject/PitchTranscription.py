@@ -1,13 +1,19 @@
 from scipy import signal
 from scipy.io import wavfile #to read and write wavfiles
 import matplotlib.pyplot as plt
-import seaborn
-import numpy, scipy
+
+import numpy as np
+import scipy
+
+#enamble caching of librosa for speed up processes
+# allows you to store and re-use intermediate computations across sessions
+import os
+os.environ['LIBROSA_CACHE_DIR'] = '/tmp/librosa_cache'
 import librosa, librosa.display
 
 import argparse
-import os
-import numpy as np
+
+
 from midiutil.MidiFile import MIDIFile
 from scipy.signal import medfilt
 
@@ -53,8 +59,9 @@ onset_times = []
 def detect_onsets(x, sr):
     print("\n\ntype of data is :",type(x))
     global hop_length # hop lenght = samples per frame
-    hop_length = 140
-    onset_envelope = librosa.onset.onset_strength(x, sr = sr, hop_length=hop_length, n_fft= 1024)
+    global onset_envelope
+    hop_length = 100
+    onset_envelope = librosa.onset.onset_strength(x, sr = sr, hop_length=hop_length, n_fft= 2048)
 
     ax2 = plt.subplot(4,1, 2)
     plt.plot(onset_envelope)
@@ -72,8 +79,8 @@ def detect_onsets(x, sr):
                                                backtrack=True,
                                                pre_max=5,
                                                post_max=6,
-                                               pre_avg=50,
-                                               post_avg=55,
+                                               pre_avg=100,
+                                               post_avg=100,
                                                delta=0.2,
                                                wait=0)
 
@@ -81,14 +88,14 @@ def detect_onsets(x, sr):
 
 
     # #### Let's pad the onsets with the beginning and end of the signal.
-    onset_boundaries = numpy.concatenate([[0], onset_samples, [len(x)]])
+    onset_boundaries = np.concatenate([[0], onset_samples, [len(x)]])
     print("onset boundaries in sample numbers: ",onset_boundaries)
 
 
     # #### Convert the onsets to units of seconds:
     onset_times = librosa.samples_to_time(onset_boundaries, sr=sr)
     print("onset times: ", onset_times)
-
+    print("number of detected onset samples without start and end :", len(onset_samples))
 
     # #### Display the results of the onset detection:
     ax3 = plt.subplot(4,1, 3)
@@ -125,18 +132,19 @@ def estimate_pitch_and_generate_sine(i):
     n0 = onset_boundaries[i]
     n1 = onset_boundaries[i+1]
     f0 = estimate_pitch(n0,n1)
-    n = numpy.arange(n1-n0)
-    return 0.2*numpy.sin(2*numpy.pi*f0*n/float(sr))
+    n = np.arange(n1-n0)
+    return 0.2*np.sin(2*np.pi*f0*n/float(sr))
 
 
 # #### Use a list comprehension to concatenate the synthesized segments:
 def get_synthesized_samples():
-    print("started synthesizing..")
+    print("started synthesizing and estimating f0 using autocorrelation..")
     global y
-    y = numpy.concatenate([
+    y = np.concatenate([
         estimate_pitch_and_generate_sine(i)
         for i in pbar(range(len(onset_boundaries)-1))
     ])
+
     print(("synthesized!"))
 
 
@@ -156,7 +164,7 @@ def plot_synthesized_CQT():
 
 
 def estimate_global_tempo(): #tempo is the bpm (beats per minuit)
-    tempo = librosa.beat.tempo(x, sr=sr)
+    tempo = librosa.beat.tempo(x, sr=sr, onset_envelope=onset_envelope)
     print("tempo is : ", tempo)
     return tempo
 
