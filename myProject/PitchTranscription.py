@@ -9,19 +9,11 @@ import numpy as np
 import os
 os.environ['LIBROSA_CACHE_DIR'] = '/tmp/librosa_cache'
 import librosa, librosa.display
-
 import argparse
-
-
 from midiutil.MidiFile import MIDIFile
 
-
 import sounddevice as sd
-
-# from progressbar import ProgressBar
-
-# pbar = ProgressBar()
-
+import progressbar as pbar
 
 
 # #### Play the audio file.
@@ -141,7 +133,7 @@ def get_synthesized_samples():
     global y
     y = np.concatenate([
         estimate_pitch_and_generate_sine(i)
-        for i in range(len(onset_boundaries)-1) #for i in pbar(range(len(onset_boundaries)-1))
+        for i in pbar.progressbar(range(len(onset_boundaries)-1)) #for i in pbar(range(len(onset_boundaries)-1))
     ])
 
     print(("synthesized!"))

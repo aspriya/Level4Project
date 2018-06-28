@@ -189,7 +189,7 @@ class AMT(Frame):
         fig3.suptitle(audio_name +' - Full Audio Waveform')
 
         self.canvas = FigureCanvasTkAgg(fig3, self)
-        self.canvas.show()
+        self.canvas.draw()
         self.canvas.get_tk_widget().grid(row = 1, column = 0, columnspan=5, rowspan=2)
 
         self.transliterate = Button(self, text="Play", command = lambda: play_audio(frames, RATE))
