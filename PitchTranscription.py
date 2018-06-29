@@ -7,7 +7,7 @@ import numpy as np
 #enamble caching of librosa for speed up processes
 # allows you to store and re-use intermediate computations across sessions
 import os
-os.environ['LIBROSA_CACHE_DIR'] = '/tmp/librosa_cache'
+os.environ['LIBROSA_CACHE_DIR'] = 'librosa_cache/librosa_cache'
 import librosa, librosa.display
 import argparse
 from midiutil.MidiFile import MIDIFile

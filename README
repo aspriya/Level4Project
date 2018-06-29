@@ -1,0 +1,15 @@
+ATOMATIC MUSIC SHEET GENERATOR
+------------------------------
+
+System uses Python3. So you need to have python3 installed in your mahcine
+
+Required packages:
+-----------------
+1. pip3
+Windows	: You can check where your python resides by typing command: where python
+Ubuntu	: sudo apt-get -y install python3-pip
+	: pip3 --version
+
+2.
+	
+
