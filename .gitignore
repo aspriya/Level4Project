@@ -10,5 +10,6 @@ wav-samples/
 
 "data set with onset times"/
 **/"data set with onset times"/
+librosa_cache/
 
 
